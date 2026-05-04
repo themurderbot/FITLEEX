@@ -3,7 +3,8 @@ import { redirect }        from 'next/navigation'
 import Link                from 'next/link'
 import { logout }          from '@/lib/auth/actions'
 import { getLocale }       from 'next-intl/server'
-import { NavBar } from './NavBar'
+import { NavBar }      from './NavBar'
+import { LangToggle }  from '@/components/LangToggle'
 
 export default async function SubscriberLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -52,12 +53,15 @@ export default async function SubscriberLayout({ children }: { children: React.R
         <span className="font-black text-lg tracking-tight" style={{ color: '#C8F04B', fontFamily: 'var(--font-display, sans-serif)' }}>
           FITLEEX
         </span>
-        <form action={logout}>
-          <button type="submit" className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5"
-            style={{ color: '#555', border: '1px solid #222' }}>
-            {locale === 'ar' ? 'خروج' : 'Logout'}
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <LangToggle locale={locale} />
+          <form action={logout}>
+            <button type="submit" className="text-xs px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5"
+              style={{ color: '#555', border: '1px solid #222' }}>
+              {locale === 'ar' ? 'خروج' : 'Logout'}
+            </button>
+          </form>
+        </div>
       </header>
 
       {/* Content */}
