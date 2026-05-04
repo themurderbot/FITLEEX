@@ -305,7 +305,7 @@ export function PlanClient({ planId, weekNumber, startDate, trainerName, days, m
                     {/* Time column */}
                     <div className="shrink-0 px-4 pt-4 pb-4 text-right" style={{ width: 72 }}>
                       <p className="font-mono font-black text-sm leading-none" style={{ color: '#C8F04B' }}>
-                        {meal.time ?? '—'}
+                        {meal.meal_time ?? '—'}
                       </p>
                       <p className="text-[9px] mt-1 uppercase tracking-wider" style={{ color: '#444' }}>
                         {meal.meal_time}

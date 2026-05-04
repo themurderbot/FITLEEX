@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Tag, ChevronRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, Tag, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const PAYMENT_METHODS = [
