@@ -1,0 +1,9 @@
+﻿User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /trainer/
+Disallow: /subscriber/
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://FITLEEX.app/sitemap.xml

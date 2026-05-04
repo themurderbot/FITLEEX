@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Thmanyah Sans — Arabic font */
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('/fonts/thmanyahsans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('/fonts/thmanyahsans-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('/fonts/thmanyahsans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('/fonts/thmanyahsans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('/fonts/thmanyahsans-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --brand: #C8F04B;
+    --background: #0a0a0a;
+    --surface: #111111;
+    --border: #2a2a2a;
+    --muted: #888888;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: white;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Arabic font — Thmanyah Sans (replaces Cairo) */
+  [dir="rtl"] body,
+  :lang(ar) {
+    font-family: 'ThmanyahSans', system-ui, sans-serif;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-100 border border-white/[0.06] rounded-xl;
+  }
+
+  .btn-brand {
+    @apply bg-brand text-black font-semibold px-5 py-2.5 rounded-lg
+           hover:bg-brand-400 transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply border border-white/10 text-white px-5 py-2.5 rounded-lg
+           hover:bg-white/5 transition-colors duration-150;
+  }
+
+  .input {
+    @apply w-full bg-surface-200 border border-white/10 rounded-lg
+           px-4 py-2.5 text-white placeholder:text-muted
+           focus:outline-none focus:ring-1 focus:ring-brand/50 focus:border-brand/50
+           transition-colors duration-150;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success  { @apply badge bg-success/15  text-success; }
+  .badge-warning  { @apply badge bg-warning/15  text-warning; }
+  .badge-danger   { @apply badge bg-danger/15   text-danger; }
+  .badge-info     { @apply badge bg-info/15     text-info; }
+  .badge-brand    { @apply badge bg-brand/15    text-brand; }
+  .badge-muted    { @apply badge bg-white/5     text-muted; }
+
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold text-white;
+  }
+
+  .stat-label {
+    @apply text-sm text-muted;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+           text-muted hover:text-white hover:bg-white/5
+           transition-colors duration-150 cursor-pointer;
+  }
+
+  .sidebar-link.active {
+    @apply bg-brand/10 text-brand;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-brand-gradient;
+  }
+
+  .glow {
+    box-shadow: 0 0 20px rgba(200, 240, 75, 0.25);
+  }
+
+  /* RTL-aware margin/padding utilities */
+  .ms-auto { margin-inline-start: auto; }
+  .me-auto { margin-inline-end: auto; }
+}
