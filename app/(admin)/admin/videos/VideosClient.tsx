@@ -34,6 +34,7 @@ export function VideosClient({ videos: initial, muscleLabel, storageUsedGb = 0, 
   const [muscle, setMuscle] = useState('all')
   const [q, setQ]           = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [playVideo, setPlayVideo] = useState<ExerciseVideo | null>(null)
 
   // Upload form state
   const [title, setTitle]       = useState('')
@@ -158,13 +159,20 @@ export function VideosClient({ videos: initial, muscleLabel, storageUsedGb = 0, 
         {/* Video grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map(video => (
-            <div key={video.id} className="card p-4 flex flex-col gap-3">
-              <div className="w-full h-32 rounded-lg flex items-center justify-center overflow-hidden" style={{ background: '#1a1a1a' }}>
+            <div key={video.id} className="card p-4 flex flex-col gap-3 cursor-pointer hover:border-white/20 transition-colors"
+              onClick={() => setPlayVideo(video)}>
+              <div className="w-full h-32 rounded-lg flex items-center justify-center overflow-hidden relative group" style={{ background: '#1a1a1a' }}>
                 {video.thumbnail_url ? (
                   <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
                 ) : (
                   <Video size={28} className="text-muted" />
                 )}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'rgba(0,0,0,0.5)' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#C8F04B' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21"/></svg>
+                  </div>
+                </div>
               </div>
               <div>
                 <p className="font-medium text-white text-sm leading-tight">{video.title_ar ?? video.title}</p>
@@ -184,6 +192,31 @@ export function VideosClient({ videos: initial, muscleLabel, storageUsedGb = 0, 
           )}
         </div>
       </div>
+
+      {/* Play Modal */}
+      {playVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setPlayVideo(null)}>
+          <div className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-white font-bold">{playVideo.title_ar ?? playVideo.title}</p>
+              <button onClick={() => setPlayVideo(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
+                style={{ color: '#888' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <video
+              src={playVideo.url}
+              controls
+              autoPlay
+              className="w-full rounded-xl"
+              style={{ maxHeight: '70vh', background: '#000' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showModal && (
