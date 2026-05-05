@@ -26,68 +26,55 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: always call getUser() — it refreshes the session token via Supabase servers
+  // Refresh session — critical: must use getUser() not getSession()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  // Helper: redirect while preserving session cookies
-  function redirectTo(dest: string) {
+  // Helper: redirect while copying session cookies so they're not lost
+  function redirectTo(dest: string, keepSearch = false) {
     const url = request.nextUrl.clone()
     url.pathname = dest
-    url.search = ''
+    if (!keepSearch) url.search = ''
     const res = NextResponse.redirect(url)
     supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c))
     return res
   }
 
-  // ── Logged-in user ─────────────────────────────────────────────────────────
   if (user) {
     const role =
       (user.user_metadata?.role as string | undefined) ??
       (user.app_metadata?.role as string | undefined)
 
-    const dashboardFor = (r: string | undefined) =>
-      r === 'admin'      ? '/admin/overview'      :
-      r === 'trainer'    ? '/trainer/dashboard'   :
-      r === 'subscriber' ? '/subscriber/dashboard':
-      '/dashboard'  // DB-based role check in /dashboard/page.tsx
+    // Root → send to dashboard (DB-based role check happens in /dashboard/page.tsx)
+    if (pathname === '/') {
+      return redirectTo('/dashboard')
+    }
 
-    // Landing page — redirect to dashboard
-    if (pathname === '/') return redirectTo(dashboardFor(role))
-
-    // Auth pages — redirect to dashboard
+    // Auth pages → dashboard
     if (pathname.startsWith('/auth/') && pathname !== '/auth/callback') {
-      return redirectTo(dashboardFor(role))
+      return redirectTo('/dashboard')
     }
 
-    // Wrong role → home (layout will handle it)
-    if (role) {
-      if (pathname.startsWith('/admin')      && role !== 'admin')      return redirectTo('/')
-      if (pathname.startsWith('/trainer')    && role !== 'trainer')    return redirectTo('/')
-      if ((pathname.startsWith('/subscriber') || pathname.startsWith('/dashboard')) && role !== 'subscriber') {
-        return redirectTo('/')
-      }
-    }
+    // Everything else: let layout/page do the DB-based role check
+    return supabaseResponse
   }
 
-  // ── Logged-out user ────────────────────────────────────────────────────────
-  if (!user) {
-    const isPublic =
-      pathname === '/' ||
-      pathname.startsWith('/trainers') ||
-      pathname.startsWith('/auth/') ||
-      pathname.startsWith('/checkout') ||
-      pathname.startsWith('/api/webhooks')
+  // Not logged in — only allow public routes
+  const isPublic =
+    pathname === '/' ||
+    pathname.startsWith('/trainers') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/checkout') ||
+    pathname.startsWith('/api/webhooks')
 
-    if (!isPublic) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      url.searchParams.set('next', pathname)
-      const res = NextResponse.redirect(url)
-      supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c))
-      return res
-    }
+  if (!isPublic) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/login'
+    url.searchParams.set('next', pathname)
+    const res = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c))
+    return res
   }
 
   return supabaseResponse
