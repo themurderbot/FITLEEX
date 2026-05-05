@@ -58,6 +58,8 @@ export function ProgressClient({ subscriptions, submissions: initial, currentUse
       reader.onload = e => setPreviews(p => [...p, e.target?.result as string])
       reader.readAsDataURL(f)
     })
+    // Reset so same file can be re-selected and multiple additions work
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   function removePhoto(idx: number) {
