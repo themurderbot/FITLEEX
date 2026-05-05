@@ -40,7 +40,7 @@ export default async function PlanBuilderPage({ searchParams }: PageProps) {
   const { data: subscriberProfile } = await (supabase as any)
     .from('profiles').select('full_name').eq('id', (subscription as any).subscriber_id).single()
 
-  const [{ data: workoutPlan }, { data: nutritionPlan }] = await Promise.all([
+  const [{ data: workoutPlan }, { data: nutritionPlan }, { data: videoLib }] = await Promise.all([
     (supabase as any)
       .from('workout_plans')
       .select('id, workout_days(id, day_number, label, exercises(id, name, sets, reps, rest_seconds, sort_order))')
@@ -56,6 +56,11 @@ export default async function PlanBuilderPage({ searchParams }: PageProps) {
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle(),
+
+    (supabase as any)
+      .from('exercise_videos')
+      .select('id, title, title_ar, muscle_group, url')
+      .order('title', { ascending: true }),
   ])
 
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -106,6 +111,7 @@ export default async function PlanBuilderPage({ searchParams }: PageProps) {
       nutritionPlanId={nutritionPlan?.id ?? null}
       initialMeals={initialMeals}
       initialTab={(tab === 'nutrition' ? 'nutrition' : 'workout') as 'workout' | 'nutrition'}
+      availableVideos={(videoLib ?? []) as { id: string; title: string; title_ar?: string; muscle_group: string; url: string }[]}
     />
   )
 }

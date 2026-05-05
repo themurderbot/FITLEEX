@@ -16,6 +16,15 @@ interface WorkoutExercise {
   rest_seconds: number
   weight_kg: string
   order: number
+  video_url?: string
+}
+
+interface VideoItem {
+  id: string
+  title: string
+  title_ar?: string
+  muscle_group: string
+  url: string
 }
 
 interface WorkoutDay {
@@ -118,6 +127,7 @@ interface Props {
   nutritionPlanId: string | null
   initialMeals: Meal[]
   initialTab: 'workout' | 'nutrition'
+  availableVideos: VideoItem[]
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -126,7 +136,7 @@ export function PlanBuilderClient({
   subscriptionId, subscriberId, subscriberName, planName, trainerId,
   workoutPlanId: initWPId, initialDays,
   nutritionPlanId: initNPId, initialMeals,
-  initialTab,
+  initialTab, availableVideos,
 }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -145,6 +155,8 @@ export function PlanBuilderClient({
   const [libSearch, setLibSearch]           = useState('')
   const [libEquip, setLibEquip]             = useState('all')
   const [libSelected, setLibSelected]       = useState<LibExercise>(LIB[0])
+  const [libTab, setLibTab]                 = useState<'library' | 'videos'>('library')
+  const [selectedVideo, setSelectedVideo]   = useState<VideoItem | null>(null)
   const [exCfg, setExCfg]                   = useState({ sets: 3, reps: '12', rest: 60, kg: '' })
   const [exMode, setExMode]                 = useState<'simple' | 'custom'>('simple')
   const [customSets, setCustomSets]         = useState<{ reps: string; kg: string }[]>([])
@@ -196,12 +208,18 @@ export function PlanBuilderClient({
     if (addingToDay === null) return
     const sets = exMode === 'custom' ? customSets.length : exCfg.sets
     const reps = exMode === 'custom' ? customSets.map(s => s.reps).join('/') : exCfg.reps
+    const name = libTab === 'videos' && selectedVideo
+      ? (selectedVideo.title_ar ?? selectedVideo.title)
+      : libSelected.name
     const ex: WorkoutExercise = {
-      name: libSelected.name, sets, reps,
+      name, sets, reps,
       rest_seconds: exCfg.rest, weight_kg: exCfg.kg, order: days[addingToDay].exercises.length,
+      video_url: libTab === 'videos' ? selectedVideo?.url : undefined,
     }
     setDays(ds => ds.map((d, i) => i === addingToDay ? { ...d, exercises: [...d.exercises, ex] } : d))
     setAddingToDay(null)
+    setLibTab('library')
+    setSelectedVideo(null)
     setExMode('simple')
   }
 
@@ -276,6 +294,7 @@ export function PlanBuilderClient({
               day.exercises.map((ex, i) => ({
                 workout_day_id: nd.id, name: ex.name,
                 sets: ex.sets, reps: ex.reps, rest_seconds: ex.rest_seconds, sort_order: i,
+                video_url: ex.video_url ?? null,
               }))
             )
             if (exErr) throw new Error(`exercises: ${exErr.message}`)
@@ -578,9 +597,20 @@ export function PlanBuilderClient({
                   <h2 className="font-bold text-white text-base">Exercise Library</h2>
                   <p className="text-xs mt-0.5" style={{ color: '#555' }}>Adding to {days[addingToDay].dayName}</p>
                 </div>
-                <button onClick={() => setAddingToDay(null)} className="hover:text-white transition-colors" style={{ color: '#555' }}>
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #2a2a2a' }}>
+                    {(['library', 'videos'] as const).map(tab => (
+                      <button key={tab} onClick={() => setLibTab(tab)}
+                        className="px-3 py-1.5 text-xs font-bold transition-colors"
+                        style={libTab === tab ? { background: '#C8F04B', color: '#000' } : { background: '#1a1a1a', color: '#666' }}>
+                        {tab === 'library' ? '📋 Library' : '🎬 Videos'}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setAddingToDay(null)} className="hover:text-white transition-colors" style={{ color: '#555' }}>
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-1 overflow-hidden min-h-0">
@@ -607,9 +637,9 @@ export function PlanBuilderClient({
                     </div>
                   </div>
 
-                  {/* Exercise list */}
+                  {/* Exercise / Video list */}
                   <div className="flex-1 overflow-y-auto">
-                    {filteredLib.map(ex => {
+                    {libTab === 'library' ? filteredLib.map(ex => {
                       const lv  = LEVEL_STYLE[ex.level]
                       const sel = libSelected.id === ex.id
                       return (
@@ -631,6 +661,32 @@ export function PlanBuilderClient({
                             style={{ background: lv.bg, color: lv.color }}>{ex.level}</span>
                         </button>
                       )
+                    }) : availableVideos.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: '#444' }}>
+                        <span style={{ fontSize: 32 }}>🎬</span>
+                        <p className="text-xs">No videos uploaded yet</p>
+                      </div>
+                    ) : availableVideos.filter(v =>
+                      !libSearch || v.title.toLowerCase().includes(libSearch.toLowerCase()) || v.title_ar?.includes(libSearch)
+                    ).map(v => {
+                      const sel = selectedVideo?.id === v.id
+                      return (
+                        <button key={v.id} onClick={() => setSelectedVideo(v)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-start transition-colors hover:bg-white/[0.02]"
+                          style={{
+                            borderBottom: '1px solid #1e1e1e',
+                            background:   sel ? 'rgba(200,240,75,0.04)' : 'transparent',
+                            borderLeft:   sel ? '3px solid #C8F04B' : '3px solid transparent',
+                          }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
+                            🎬
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{v.title_ar ?? v.title}</p>
+                            <p className="text-[10px] font-mono capitalize" style={{ color: '#555' }}>{v.muscle_group}</p>
+                          </div>
+                        </button>
+                      )
                     })}
                   </div>
                 </div>
@@ -639,25 +695,41 @@ export function PlanBuilderClient({
                 <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
                   <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <h3 className="text-lg font-bold text-white">{libSelected.name}</h3>
+                      <h3 className="text-lg font-bold text-white">
+                        {libTab === 'videos' && selectedVideo
+                          ? (selectedVideo.title_ar ?? selectedVideo.title)
+                          : libSelected.name}
+                      </h3>
                       <span className="text-[10px] px-2 py-0.5 rounded capitalize"
                         style={{ background: 'rgba(200,240,75,0.1)', color: '#C8F04B', border: '1px solid rgba(200,240,75,0.2)' }}>
-                        {libSelected.muscle}
+                        {libTab === 'videos' && selectedVideo ? selectedVideo.muscle_group : libSelected.muscle}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded capitalize"
-                        style={{ background: '#1e1e1e', color: '#666', border: '1px solid #2a2a2a' }}>
-                        {libSelected.equipment}
-                      </span>
+                      {libTab === 'library' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded capitalize"
+                          style={{ background: '#1e1e1e', color: '#666', border: '1px solid #2a2a2a' }}>
+                          {libSelected.equipment}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: '#888' }}>{libSelected.desc}</p>
+                    {libTab === 'library' && (
+                      <p className="text-sm leading-relaxed" style={{ color: '#888' }}>{libSelected.desc}</p>
+                    )}
+                    {libTab === 'videos' && !selectedVideo && (
+                      <p className="text-sm" style={{ color: '#555' }}>اختر فيديو من القائمة لمعاينته</p>
+                    )}
                   </div>
 
-                  {/* Video placeholder */}
-                  <div className="rounded-xl flex flex-col items-center justify-center"
-                    style={{ height: 190, background: '#111', border: '1px solid #222', color: '#333' }}>
-                    <span style={{ fontSize: 36 }}>▶</span>
-                    <p className="text-xs mt-2">{libSelected.name} — proper form</p>
-                  </div>
+                  {/* Video preview */}
+                  {libTab === 'videos' && selectedVideo ? (
+                    <video src={selectedVideo.url} controls preload="metadata" muted
+                      className="w-full rounded-xl" style={{ maxHeight: 190, background: '#000' }} />
+                  ) : (
+                    <div className="rounded-xl flex flex-col items-center justify-center"
+                      style={{ height: 190, background: '#111', border: '1px solid #222', color: '#333' }}>
+                      <span style={{ fontSize: 36 }}>▶</span>
+                      <p className="text-xs mt-2">{libSelected.name} — proper form</p>
+                    </div>
+                  )}
 
                   {/* Sets config */}
                   <div>
