@@ -161,11 +161,17 @@ export function VideosClient({ videos: initial, muscleLabel, storageUsedGb = 0, 
           {filtered.map(video => (
             <div key={video.id} className="card p-4 flex flex-col gap-3 cursor-pointer hover:border-white/20 transition-colors"
               onClick={() => setPlayVideo(video)}>
-              <div className="w-full h-32 rounded-lg flex items-center justify-center overflow-hidden relative group" style={{ background: '#1a1a1a' }}>
+              <div className="w-full h-32 rounded-lg overflow-hidden relative group" style={{ background: '#1a1a1a' }}>
                 {video.thumbnail_url ? (
                   <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
                 ) : (
-                  <Video size={28} className="text-muted" />
+                  <video
+                    src={video.url}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
                 )}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ background: 'rgba(0,0,0,0.5)' }}>
