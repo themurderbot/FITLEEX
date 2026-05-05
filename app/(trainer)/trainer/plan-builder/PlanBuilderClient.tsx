@@ -155,8 +155,7 @@ export function PlanBuilderClient({
   const [libSearch, setLibSearch]           = useState('')
   const [libEquip, setLibEquip]             = useState('all')
   const [libSelected, setLibSelected]       = useState<LibExercise>(LIB[0])
-  const [libTab, setLibTab]                 = useState<'library' | 'videos'>('library')
-  const [selectedVideo, setSelectedVideo]   = useState<VideoItem | null>(null)
+  const [selVideo, setSelVideo]             = useState<VideoItem | null>(null)
   const [exCfg, setExCfg]                   = useState({ sets: 3, reps: '12', rest: 60, kg: '' })
   const [exMode, setExMode]                 = useState<'simple' | 'custom'>('simple')
   const [customSets, setCustomSets]         = useState<{ reps: string; kg: string }[]>([])
@@ -208,18 +207,14 @@ export function PlanBuilderClient({
     if (addingToDay === null) return
     const sets = exMode === 'custom' ? customSets.length : exCfg.sets
     const reps = exMode === 'custom' ? customSets.map(s => s.reps).join('/') : exCfg.reps
-    const name = libTab === 'videos' && selectedVideo
-      ? (selectedVideo.title_ar ?? selectedVideo.title)
-      : libSelected.name
     const ex: WorkoutExercise = {
-      name, sets, reps,
+      name: libSelected.name, sets, reps,
       rest_seconds: exCfg.rest, weight_kg: exCfg.kg, order: days[addingToDay].exercises.length,
-      video_url: libTab === 'videos' ? selectedVideo?.url : undefined,
+      video_url: selVideo?.url,
     }
     setDays(ds => ds.map((d, i) => i === addingToDay ? { ...d, exercises: [...d.exercises, ex] } : d))
     setAddingToDay(null)
-    setLibTab('library')
-    setSelectedVideo(null)
+    setSelVideo(null)
     setExMode('simple')
   }
 
@@ -347,10 +342,32 @@ export function PlanBuilderClient({
     }
   }
 
+  // Match each LIB exercise to a video by title (case-insensitive)
+  function matchVideo(ex: LibExercise): VideoItem | undefined {
+    return availableVideos.find(v =>
+      v.title.toLowerCase().includes(ex.name.toLowerCase()) ||
+      ex.name.toLowerCase().includes(v.title.toLowerCase()) ||
+      (v.title_ar && ex.name.toLowerCase().includes(v.title_ar))
+    )
+  }
+
+  // Orphan videos (no matching LIB exercise) shown as extra exercises
+  const orphanVideos = availableVideos.filter(v =>
+    !LIB.some(ex =>
+      v.title.toLowerCase().includes(ex.name.toLowerCase()) ||
+      ex.name.toLowerCase().includes(v.title.toLowerCase())
+    )
+  )
+
   const filteredLib = LIB.filter(ex => {
     const q = libSearch.toLowerCase()
     return (!q || ex.name.toLowerCase().includes(q) || ex.muscle.includes(q))
       && (libEquip === 'all' || ex.equipment === libEquip)
+  })
+
+  const filteredOrphans = orphanVideos.filter(v => {
+    const q = libSearch.toLowerCase()
+    return !q || v.title.toLowerCase().includes(q) || v.title_ar?.includes(libSearch)
   })
 
   const sortedMeals = [...meals].sort((a, b) => a.time.localeCompare(b.time))
@@ -597,20 +614,9 @@ export function PlanBuilderClient({
                   <h2 className="font-bold text-white text-base">Exercise Library</h2>
                   <p className="text-xs mt-0.5" style={{ color: '#555' }}>Adding to {days[addingToDay].dayName}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #2a2a2a' }}>
-                    {(['library', 'videos'] as const).map(tab => (
-                      <button key={tab} onClick={() => setLibTab(tab)}
-                        className="px-3 py-1.5 text-xs font-bold transition-colors"
-                        style={libTab === tab ? { background: '#C8F04B', color: '#000' } : { background: '#1a1a1a', color: '#666' }}>
-                        {tab === 'library' ? '📋 Library' : '🎬 Videos'}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={() => setAddingToDay(null)} className="hover:text-white transition-colors" style={{ color: '#555' }}>
-                    <X size={18} />
-                  </button>
-                </div>
+                <button onClick={() => setAddingToDay(null)} className="hover:text-white transition-colors" style={{ color: '#555' }}>
+                  <X size={18} />
+                </button>
               </div>
 
               <div className="flex flex-1 overflow-hidden min-h-0">
@@ -637,57 +643,72 @@ export function PlanBuilderClient({
                     </div>
                   </div>
 
-                  {/* Exercise / Video list */}
+                  {/* Unified exercise list */}
                   <div className="flex-1 overflow-y-auto">
-                    {libTab === 'library' ? filteredLib.map(ex => {
-                      const lv  = LEVEL_STYLE[ex.level]
-                      const sel = libSelected.id === ex.id
+                    {filteredLib.map(ex => {
+                      const lv      = LEVEL_STYLE[ex.level]
+                      const sel     = libSelected.id === ex.id
+                      const vidMatch = matchVideo(ex)
                       return (
-                        <button key={ex.id} onClick={() => setLibSelected(ex)}
+                        <button key={ex.id} onClick={() => { setLibSelected(ex); setSelVideo(vidMatch ?? null) }}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-start transition-colors hover:bg-white/[0.02]"
                           style={{
                             borderBottom: '1px solid #1e1e1e',
                             background:   sel ? 'rgba(200,240,75,0.04)' : 'transparent',
                             borderLeft:   sel ? '3px solid #C8F04B' : '3px solid transparent',
                           }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
-                            💪
+                          {/* Thumbnail or emoji */}
+                          <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#1e1e1e' }}>
+                            {vidMatch ? (
+                              <video src={vidMatch.url} preload="metadata" muted playsInline
+                                className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-base">💪</div>
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
                             <p className="text-[10px] font-mono capitalize" style={{ color: '#555' }}>{ex.muscle} · {ex.equipment}</p>
                           </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0"
-                            style={{ background: lv.bg, color: lv.color }}>{ex.level}</span>
-                        </button>
-                      )
-                    }) : availableVideos.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: '#444' }}>
-                        <span style={{ fontSize: 32 }}>🎬</span>
-                        <p className="text-xs">No videos uploaded yet</p>
-                      </div>
-                    ) : availableVideos.filter(v =>
-                      !libSearch || v.title.toLowerCase().includes(libSearch.toLowerCase()) || v.title_ar?.includes(libSearch)
-                    ).map(v => {
-                      const sel = selectedVideo?.id === v.id
-                      return (
-                        <button key={v.id} onClick={() => setSelectedVideo(v)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-start transition-colors hover:bg-white/[0.02]"
-                          style={{
-                            borderBottom: '1px solid #1e1e1e',
-                            background:   sel ? 'rgba(200,240,75,0.04)' : 'transparent',
-                            borderLeft:   sel ? '3px solid #C8F04B' : '3px solid transparent',
-                          }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1e1e1e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
-                            🎬
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{v.title_ar ?? v.title}</p>
-                            <p className="text-[10px] font-mono capitalize" style={{ color: '#555' }}>{v.muscle_group}</p>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {vidMatch && <span style={{ fontSize: 10, color: '#C8F04B' }}>🎬</span>}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                              style={{ background: lv.bg, color: lv.color }}>{ex.level}</span>
                           </div>
                         </button>
                       )
                     })}
+
+                    {/* Orphan videos (no matching LIB exercise) */}
+                    {filteredOrphans.length > 0 && (
+                      <>
+                        <div className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest" style={{ color: '#444', borderBottom: '1px solid #1e1e1e' }}>
+                          Video Exercises
+                        </div>
+                        {filteredOrphans.map(v => {
+                          const fakeEx: LibExercise = { id: v.id, name: v.title_ar ?? v.title, muscle: v.muscle_group, equipment: 'other', level: 'Beg', desc: '' }
+                          const sel = libSelected.id === v.id
+                          return (
+                            <button key={v.id} onClick={() => { setLibSelected(fakeEx); setSelVideo(v) }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-start transition-colors hover:bg-white/[0.02]"
+                              style={{
+                                borderBottom: '1px solid #1e1e1e',
+                                background:   sel ? 'rgba(200,240,75,0.04)' : 'transparent',
+                                borderLeft:   sel ? '3px solid #C8F04B' : '3px solid transparent',
+                              }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#1e1e1e' }}>
+                                <video src={v.url} preload="metadata" muted playsInline className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-white truncate">{v.title_ar ?? v.title}</p>
+                                <p className="text-[10px] font-mono capitalize" style={{ color: '#555' }}>{v.muscle_group}</p>
+                              </div>
+                              <span style={{ fontSize: 10, color: '#C8F04B' }}>🎬</span>
+                            </button>
+                          )
+                        })}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -696,32 +717,27 @@ export function PlanBuilderClient({
                   <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="text-lg font-bold text-white">
-                        {libTab === 'videos' && selectedVideo
-                          ? (selectedVideo.title_ar ?? selectedVideo.title)
-                          : libSelected.name}
+                        {selVideo ? (selVideo.title_ar ?? selVideo.title) : libSelected.name}
                       </h3>
                       <span className="text-[10px] px-2 py-0.5 rounded capitalize"
                         style={{ background: 'rgba(200,240,75,0.1)', color: '#C8F04B', border: '1px solid rgba(200,240,75,0.2)' }}>
-                        {libTab === 'videos' && selectedVideo ? selectedVideo.muscle_group : libSelected.muscle}
+                        {selVideo ? selVideo.muscle_group : libSelected.muscle}
                       </span>
-                      {libTab === 'library' && (
+                      {!selVideo && libSelected.equipment && (
                         <span className="text-[10px] px-2 py-0.5 rounded capitalize"
                           style={{ background: '#1e1e1e', color: '#666', border: '1px solid #2a2a2a' }}>
                           {libSelected.equipment}
                         </span>
                       )}
                     </div>
-                    {libTab === 'library' && (
+                    {!selVideo && libSelected.desc && (
                       <p className="text-sm leading-relaxed" style={{ color: '#888' }}>{libSelected.desc}</p>
-                    )}
-                    {libTab === 'videos' && !selectedVideo && (
-                      <p className="text-sm" style={{ color: '#555' }}>اختر فيديو من القائمة لمعاينته</p>
                     )}
                   </div>
 
                   {/* Video preview */}
-                  {libTab === 'videos' && selectedVideo ? (
-                    <video src={selectedVideo.url} controls preload="metadata" muted
+                  {selVideo ? (
+                    <video src={selVideo.url} controls preload="metadata" muted
                       className="w-full rounded-xl" style={{ maxHeight: 190, background: '#000' }} />
                   ) : (
                     <div className="rounded-xl flex flex-col items-center justify-center"
