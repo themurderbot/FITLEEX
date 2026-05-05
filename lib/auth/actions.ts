@@ -230,6 +230,14 @@ export async function setLanguage(lang: 'ar' | 'en') {
 
 export async function logout() {
   const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect('/')
+  await supabase.auth.signOut({ scope: 'local' })
+  // Clear all Supabase auth cookies explicitly
+  const cookieStore = await cookies()
+  const all = cookieStore.getAll()
+  for (const c of all) {
+    if (c.name.startsWith('sb-')) {
+      cookieStore.set(c.name, '', { maxAge: 0, path: '/' })
+    }
+  }
+  redirect('/auth/login')
 }

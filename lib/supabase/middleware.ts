@@ -26,53 +26,67 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // IMPORTANT: always call getUser() — it refreshes the session token via Supabase servers
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
 
-  // Public routes — anyone can access
-  const isPublic =
-    pathname === '/' ||
-    pathname.startsWith('/trainers') ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/checkout') ||
-    pathname.startsWith('/api/webhooks')
-
-  if (!user && !isPublic) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/auth/login'
-    loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+  // Helper: redirect while preserving session cookies
+  function redirectTo(dest: string) {
+    const url = request.nextUrl.clone()
+    url.pathname = dest
+    url.search = ''
+    const res = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c))
+    return res
   }
 
+  // ── Logged-in user ─────────────────────────────────────────────────────────
   if (user) {
-    // Read role from JWT metadata (set at signup) — avoids a DB round-trip on every request
     const role =
       (user.user_metadata?.role as string | undefined) ??
       (user.app_metadata?.role as string | undefined)
 
-    // Redirect authenticated users away from auth pages
+    const dashboardFor = (r: string | undefined) =>
+      r === 'admin'      ? '/admin/overview'      :
+      r === 'trainer'    ? '/trainer/dashboard'   :
+      r === 'subscriber' ? '/subscriber/dashboard':
+      '/dashboard'  // DB-based role check in /dashboard/page.tsx
+
+    // Landing page — redirect to dashboard
+    if (pathname === '/') return redirectTo(dashboardFor(role))
+
+    // Auth pages — redirect to dashboard
     if (pathname.startsWith('/auth/') && pathname !== '/auth/callback') {
-      const dest = request.nextUrl.clone()
-      dest.pathname = role === 'admin'      ? '/admin/overview'
-                    : role === 'trainer'    ? '/trainer/dashboard'
-                    : role === 'subscriber' ? '/dashboard'
-                    : '/'   // role unknown in JWT → landing page (layout will handle proper check)
-      return NextResponse.redirect(dest)
+      return redirectTo(dashboardFor(role))
     }
 
-    // Role-based route guards — only block if role is explicitly a different role
-    // (if role is missing from JWT, let layout/page handle the DB check)
-    if (pathname.startsWith('/admin') && role && role !== 'admin') {
-      return NextResponse.redirect(new URL('/', request.url))
+    // Wrong role → home (layout will handle it)
+    if (role) {
+      if (pathname.startsWith('/admin')      && role !== 'admin')      return redirectTo('/')
+      if (pathname.startsWith('/trainer')    && role !== 'trainer')    return redirectTo('/')
+      if ((pathname.startsWith('/subscriber') || pathname.startsWith('/dashboard')) && role !== 'subscriber') {
+        return redirectTo('/')
+      }
     }
+  }
 
-    if (pathname.startsWith('/trainer') && role && role !== 'trainer') {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
+  // ── Logged-out user ────────────────────────────────────────────────────────
+  if (!user) {
+    const isPublic =
+      pathname === '/' ||
+      pathname.startsWith('/trainers') ||
+      pathname.startsWith('/auth/') ||
+      pathname.startsWith('/checkout') ||
+      pathname.startsWith('/api/webhooks')
 
-    if ((pathname.startsWith('/dashboard') || pathname.startsWith('/subscriber')) && role && role !== 'subscriber') {
-      return NextResponse.redirect(new URL('/', request.url))
+    if (!isPublic) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('next', pathname)
+      const res = NextResponse.redirect(url)
+      supabaseResponse.cookies.getAll().forEach(c => res.cookies.set(c))
+      return res
     }
   }
 
