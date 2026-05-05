@@ -25,6 +25,15 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps) {
           p_subscription_id: sub,
           p_tap_charge_id:   tap_id,
         })
+        // Auto-create conversation between subscriber and trainer
+        const { data: subscription } = await (supabase as any)
+          .from('subscriptions').select('subscriber_id, trainer_id').eq('id', sub).single()
+        if (subscription) {
+          await (supabase as any).from('conversations').upsert(
+            { subscriber_id: subscription.subscriber_id, trainer_id: subscription.trainer_id },
+            { onConflict: 'subscriber_id,trainer_id', ignoreDuplicates: true }
+          )
+        }
       } else {
         redirect(`/checkout/failed?sub=${sub}&reason=not_captured`)
       }

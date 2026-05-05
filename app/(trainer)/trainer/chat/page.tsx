@@ -55,9 +55,28 @@ export default async function ChatPage({ searchParams }: PageProps) {
     unreadCount: unreadMap[c.id] ?? 0,
   }))
 
-  const activeConvId = activeSubscriberId
+  let activeConvId = activeSubscriberId
     ? enrichedConversations.find(c => (c.profiles as any)?.id === activeSubscriberId)?.id
     : enrichedConversations[0]?.id
+
+  // Auto-create conversation if subscriber param given but no convo exists yet
+  if (activeSubscriberId && !activeConvId) {
+    const { data: newConvo } = await (supabase as any)
+      .from('conversations')
+      .upsert(
+        { subscriber_id: activeSubscriberId, trainer_id: (trainer as any).id },
+        { onConflict: 'subscriber_id,trainer_id', ignoreDuplicates: false }
+      )
+      .select('id')
+      .single()
+    if (newConvo?.id) {
+      activeConvId = newConvo.id
+      enrichedConversations.unshift({
+        id: newConvo.id, subscriber_id: activeSubscriberId,
+        profiles: null, last_message_at: null, lastMessage: undefined, unreadCount: 0,
+      })
+    }
+  }
 
   const { data: messages } = activeConvId ? await (supabase as any)
     .from('messages')

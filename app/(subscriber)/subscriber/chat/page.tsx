@@ -36,10 +36,28 @@ export default async function SubscriberChatPage({ searchParams }: PageProps) {
     lastMessageAt: c.last_message_at,
   }))
 
-  // Pick active conversation
-  const activeConvo = trainerId
+  // Pick active conversation — auto-create if trainer param given but no convo exists yet
+  let activeConvo = trainerId
     ? convos.find((c: any) => c.trainers?.id === trainerId)
     : conversations.length === 1 ? convos[0] : null
+
+  if (trainerId && !activeConvo) {
+    const { data: newConvo } = await (supabase as any)
+      .from('conversations')
+      .upsert({ subscriber_id: user.id, trainer_id: trainerId }, { onConflict: 'subscriber_id,trainer_id', ignoreDuplicates: false })
+      .select(`id, last_message_at, trainers!trainer_id(id, profiles!profile_id(full_name, avatar_url))`)
+      .single()
+    if (newConvo) {
+      activeConvo = newConvo
+      conversations.unshift({
+        id: newConvo.id,
+        trainerId:    newConvo.trainers?.id ?? trainerId,
+        trainerName:  newConvo.trainers?.profiles?.full_name ?? '',
+        trainerAvatar: newConvo.trainers?.profiles?.avatar_url ?? null,
+        lastMessageAt: null,
+      })
+    }
+  }
 
   const { data: messages } = activeConvo
     ? await supabase
