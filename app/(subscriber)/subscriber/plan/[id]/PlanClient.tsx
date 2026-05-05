@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronLeft, ChevronRight, Check, BarChart2, Play, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Check, BarChart2, Play, ChevronDown, ChevronUp, X } from 'lucide-react'
 
 interface Exercise {
   id: string; name: string; name_ar: string; sets: number
@@ -62,8 +62,9 @@ export function PlanClient({ planId, weekNumber, startDate, trainerName, days, m
   const [activeDay, setActiveDay] = useState(0)
   const [completed, setCompleted] = useState<Set<string>>(new Set())
   const [expanded,  setExpanded]  = useState<string | null>(null)
-  const [mealSheet, setMealSheet] = useState<Meal | null>(null)
-  const [photoIdx,  setPhotoIdx]  = useState(0)
+  const [mealSheet,      setMealSheet]      = useState<Meal | null>(null)
+  const [photoIdx,       setPhotoIdx]       = useState(0)
+  const [activeExercise, setActiveExercise] = useState<Exercise | null>(null)
 
   useEffect(() => {
     try {
@@ -220,10 +221,26 @@ export function PlanClient({ planId, weekNumber, startDate, trainerName, days, m
               return (
                 <div key={ex.id} className="flex items-center gap-3 rounded-2xl p-3"
                   style={{ background: '#141414', border: `1px solid ${done ? 'rgba(200,240,75,0.2)' : '#222'}` }}>
-                  <div className="shrink-0 flex items-center justify-center rounded-xl text-lg"
+
+                  {/* Icon — video thumbnail or emoji */}
+                  <button
+                    onClick={() => setActiveExercise(ex)}
+                    className="shrink-0 rounded-xl overflow-hidden relative group"
                     style={{ width: 44, height: 44, background: bg }}>
-                    {emoji}
-                  </div>
+                    {ex.video_url ? (
+                      <>
+                        <video src={ex.video_url} preload="metadata" muted playsInline
+                          className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ background: 'rgba(0,0,0,0.5)' }}>
+                          <Play size={14} fill="#C8F04B" style={{ color: '#C8F04B' }} />
+                        </div>
+                      </>
+                    ) : (
+                      <span className="flex items-center justify-center w-full h-full text-lg">{emoji}</span>
+                    )}
+                  </button>
+
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm text-white">
                       {locale === 'ar' ? (ex.name_ar || ex.name) : ex.name}
@@ -233,13 +250,7 @@ export function PlanClient({ planId, weekNumber, startDate, trainerName, days, m
                       {ex.rest_seconds ? ` · ${ex.rest_seconds}s` : ''}
                     </p>
                   </div>
-                  {ex.video_url && (
-                    <a href={ex.video_url} target="_blank" rel="noopener noreferrer"
-                      className="shrink-0 flex items-center justify-center rounded-lg"
-                      style={{ width: 28, height: 28, background: 'rgba(200,240,75,0.1)' }}>
-                      <Play size={12} style={{ color: '#C8F04B' }} />
-                    </a>
-                  )}
+
                   <button onClick={() => toggleDone(ex.id)} className="shrink-0"
                     style={{
                       width: 28, height: 28, borderRadius: 8,
@@ -543,6 +554,66 @@ export function PlanClient({ planId, weekNumber, startDate, trainerName, days, m
         </div>
       )}
     </div>
+
+    {/* ── Exercise Detail Modal ── */}
+    {activeExercise && (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
+        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}
+        onClick={() => setActiveExercise(null)}>
+        <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden"
+          style={{ background: '#141414', border: '1px solid #222' }}
+          onClick={e => e.stopPropagation()}>
+
+          {/* Video or placeholder */}
+          {activeExercise.video_url ? (
+            <video src={activeExercise.video_url} controls autoPlay muted playsInline
+              className="w-full" style={{ maxHeight: 260, background: '#000', display: 'block' }} />
+          ) : (
+            <div className="w-full flex items-center justify-center" style={{ height: 180, background: '#111' }}>
+              <span style={{ fontSize: 48 }}>💪</span>
+            </div>
+          )}
+
+          <div className="p-5">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-lg font-black text-white leading-tight">
+                {locale === 'ar' ? (activeExercise.name_ar || activeExercise.name) : activeExercise.name}
+              </h3>
+              <button onClick={() => setActiveExercise(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: '#222', color: '#888' }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { label: lbl('Sets', 'مجموعات'), value: activeExercise.sets },
+                { label: lbl('Reps', 'تكرارات'), value: activeExercise.reps },
+                { label: lbl('Rest', 'راحة'), value: activeExercise.rest_seconds ? `${activeExercise.rest_seconds}s` : '—' },
+              ].map(s => (
+                <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: '#1e1e1e' }}>
+                  <p className="font-mono font-black text-xl text-white leading-none">{s.value}</p>
+                  <p className="text-[10px] mt-1.5 uppercase tracking-widest" style={{ color: '#555' }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { toggleDone(activeExercise.id); setActiveExercise(null) }}
+              className="w-full py-3 rounded-xl font-bold text-sm transition-opacity"
+              style={{
+                background: completed.has(activeExercise.id) ? '#1e1e1e' : '#C8F04B',
+                color:      completed.has(activeExercise.id) ? '#555'     : '#000',
+                border:     completed.has(activeExercise.id) ? '1px solid #333' : 'none',
+              }}>
+              {completed.has(activeExercise.id) ? lbl('Mark as incomplete', 'إلغاء الإتمام') : lbl('Mark as done ✓', 'تم ✓')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* ── Meal Detail Modal ── */}
     {mealSheet && (
