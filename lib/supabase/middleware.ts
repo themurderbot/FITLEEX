@@ -46,13 +46,8 @@ export async function updateSession(request: NextRequest) {
       (user.user_metadata?.role as string | undefined) ??
       (user.app_metadata?.role as string | undefined)
 
-    // Root → send to dashboard (DB-based role check happens in /dashboard/page.tsx)
-    if (pathname === '/') {
-      return redirectTo('/dashboard')
-    }
-
-    // Auth pages → dashboard
-    if (pathname.startsWith('/auth/') && pathname !== '/auth/callback') {
+    // Root or auth pages → send to dashboard router
+    if (pathname === '/' || (pathname.startsWith('/auth/') && pathname !== '/auth/callback')) {
       return redirectTo('/dashboard')
     }
 

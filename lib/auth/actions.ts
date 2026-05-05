@@ -67,8 +67,10 @@ export async function login(formData: FormData): Promise<ActionResult> {
     .eq('id', user!.id)
     .single()
 
-  const dest = (profile as any)?.role === 'admin'   ? '/admin/overview'
-             : (profile as any)?.role === 'trainer' ? '/trainer/dashboard'
+  const role = (profile as any)?.role
+  const dest = role === 'admin'      ? '/admin/overview'
+             : role === 'trainer'    ? '/trainer/dashboard'
+             : role === 'subscriber' ? '/subscriber/dashboard'
              : '/dashboard'
 
   return { success: true, dest }
