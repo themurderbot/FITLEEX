@@ -723,6 +723,7 @@ export default function LandingPage() {
               <span className="footer-link">{t('fc2L2')}</span>
               <span className="footer-link">{t('fc2L3')}</span>
               <span className="footer-link">{t('fc2L4')}</span>
+              <a href="/auth/login" className="footer-link" style={{ marginTop: 12, fontSize: 11, opacity: 0.3, display: 'block' }}>Admin</a>
             </div>
             <div>
               <div className="footer-col-title">{t('fc3T')}</div>
