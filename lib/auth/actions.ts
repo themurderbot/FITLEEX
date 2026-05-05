@@ -239,5 +239,5 @@ export async function logout() {
       cookieStore.set(c.name, '', { maxAge: 0, path: '/' })
     }
   }
-  redirect('/auth/login')
+  redirect('/')
 }
